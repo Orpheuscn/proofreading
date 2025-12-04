@@ -107,11 +107,16 @@
                         开始对齐
                     </button>
                     
-                    <button onclick="triggerFileUpload()" class="btn btn-secondary shadow-lg text-lg min-w-[160px]">
+                    <button onclick="triggerFileUpload()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                         导入术语
                     </button>
                     <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="handleJsonUpload(this)" />
+
+                    <button onclick="clearCache()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        清除缓存
+                    </button>
                 </div>
                 <div id="termStatus" class="text-center text-xs text-base-content/50 mt-2 h-4"></div>
             </div>
@@ -148,6 +153,10 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
                             保存
                         </button>
+                        <button class="btn btn-sm btn-secondary join-item" onclick="copyRightText()" title="复制全部文本">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                            复制
+                        </button>
                     </div>
                 </div>
             </div>
@@ -162,6 +171,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast toast-top toast-center z-50" id="toast-container"></div>
 
     <script>
         // 常量定义
@@ -212,7 +224,8 @@
                     const json = JSON.parse(e.target.result);
                     if (typeof json === 'object' && json !== null) {
                         glossary = json;
-                        document.getElementById('termStatus').textContent = `成功导入 ${Object.keys(json).length} 个术语`;
+                        showToast(`成功导入 ${Object.keys(json).length} 个术语`, 'success');
+                        document.getElementById('termStatus').textContent = `已导入 ${Object.keys(json).length} 个术语`;
                         document.getElementById('termStatus').className = "text-center text-xs text-success mt-2 h-4";
                         // 重新对齐以应用高亮
                         alignText();
@@ -220,7 +233,7 @@
                         throw new Error('JSON 格式不正确');
                     }
                 } catch (err) {
-                    alert('无法解析 JSON 文件，请确保格式正确。错误: ' + err.message);
+                    showToast('无法解析 JSON 文件，请确保格式正确', 'error');
                     document.getElementById('termStatus').textContent = "导入失败";
                     document.getElementById('termStatus').className = "text-center text-xs text-error mt-2 h-4";
                 }
@@ -230,8 +243,59 @@
             input.value = '';
         }
 
+        // 清除缓存
+        function clearCache() {
+            if(confirm("确定要清除所有本地缓存的文本吗？此操作不可恢复。")) {
+                localStorage.removeItem(STORAGE_KEY_LEFT);
+                localStorage.removeItem(STORAGE_KEY_RIGHT);
+                document.getElementById('leftText').value = '';
+                document.getElementById('rightText').value = '';
+                alignText(); // 刷新视图
+                showToast('缓存已清除', 'info');
+            }
+        }
+
+        // 复制右侧文本
+        function copyRightText() {
+            // 确保保存最新编辑
+            saveAllEdits();
+            
+            const text = document.getElementById('rightText').value;
+            if (!text) {
+                showToast('右侧没有可复制的文本', 'warning');
+                return;
+            }
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('右侧文本已复制到剪贴板', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showToast('复制失败，请手动复制', 'error');
+            });
+        }
+        
+        // 显示 Toast 提示
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let alertClass = 'alert-info';
+            if (type === 'success') alertClass = 'alert-success';
+            if (type === 'warning') alertClass = 'alert-warning';
+            if (type === 'error') alertClass = 'alert-error';
+            
+            toast.className = `alert ${alertClass} shadow-lg mb-2`;
+            toast.innerHTML = `<span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
         // 高亮文本
-        // 简单的全字匹配替换，注意这里要防止HTML注入，但又要插入HTML标签
         function highlightTerms(text, side) {
             if (!text) return '';
             if (Object.keys(glossary).length === 0) return escapeHtml(text);
@@ -406,9 +470,8 @@
             }
         }
 
-        // 手动点击保存按钮（其实现在 toggleEdit 和 alignText 都会自动保存，这个按钮可以作为显式的立即保存）
+        // 手动点击保存按钮
         function saveResultContent(side) {
-            // 复用 saveAllEdits 逻辑，但这里只针对单侧触发对齐刷新可能更好，但为了统一，全部保存也没问题
             saveAllEdits();
             
             // 退出编辑状态
@@ -418,15 +481,12 @@
             if (side === 'left') isEditingLeft = false;
             else isEditingRight = false;
             
-            // 移除按钮激活样式
-            const controlContainer = document.querySelector(side === 'left' ? '.join:first-child' : '.join:last-child');
-            // 移除特定侧的按钮样式有点麻烦，直接移除所有吧，反正 alignText 会重置
-            // 但这里我们只想移除当前侧的。
-            // 简单处理：重新对齐会重置所有状态
+            // 重新对齐会重置所有状态
             alignText();
             
             const time = new Date().toLocaleTimeString();
             document.getElementById('autoSaveStatus').textContent = `手动保存于 ${time}`;
+            showToast('已保存并刷新视图', 'success');
         }
     </script>
 </body>
