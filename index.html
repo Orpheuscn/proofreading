@@ -11,14 +11,10 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
 
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-        
-        /* 结果区域样式 */
         .align-row {
             display: flex;
             border-bottom: 1px solid oklch(var(--b3));
+            position: relative;
         }
         
         .align-cell {
@@ -26,8 +22,7 @@
             padding: 1rem;
             white-space: pre-wrap;
             word-break: break-word;
-            line-height: 1.6;
-            outline: none; /* 编辑时去除默认 outline */
+            outline: none;
         }
         
         .align-cell:first-child {
@@ -35,88 +30,37 @@
             background-color: oklch(var(--b2)); 
         }
 
-        /* 编辑模式下的样式 */
         .align-cell[contenteditable="true"] {
-            box-shadow: inset 0 0 0 1px oklch(var(--p));
-            background-color: oklch(var(--b1));
-            border-radius: 2px;
-            margin: 2px;
-            padding: calc(1rem - 2px); /* 补偿 margin */
+            box-shadow: inset 0 0 0 1px oklch(var(--p) / 0.3);
         }
 
-        /* 隐藏滚动条但保留功能 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* 术语高亮样式 */
-        .term-highlight-left {
-            background-color: rgba(255, 215, 0, 0.3); /* 金色，半透明 */
-            color: #ffd700;
-            border-bottom: 1px dashed #ffd700;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-        
-        .term-highlight-right {
-            background-color: rgba(0, 255, 127, 0.2); /* 春绿色，半透明 */
-            color: #00ff7f;
-            border-bottom: 1px dashed #00ff7f;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-
-        /* 插入按钮样式 */
-        .insert-btn {
+        /* 悬浮显示的插入按钮 */
+        .insert-btns {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -12px;
+            height: 24px;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0.25rem;
-            border-bottom: 1px solid oklch(var(--b3));
-            background-color: oklch(var(--b1));
-            transition: all 0.2s;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            pointer-events: none;
         }
         
-        .insert-btn:hover {
-            background-color: oklch(var(--b2));
+        .align-row:hover .insert-btns {
+            opacity: 1;
+            pointer-events: auto;
         }
         
-        .insert-btn button {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 2px solid oklch(var(--p));
-            background-color: oklch(var(--b1));
-            color: oklch(var(--p));
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .insert-btn button:hover {
-            background-color: oklch(var(--p));
-            color: oklch(var(--pc));
-            transform: scale(1.1);
-        }
-        
-        .insert-btn-left, .insert-btn-right {
+        .insert-btns > div {
             flex: 1;
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 0.25rem;
         }
         
-        .insert-btn-left {
-            border-right: 1px solid oklch(var(--b3));
+        .insert-btns > div:first-child {
+            border-right: 1px solid transparent;
         }
     </style>
 </head>
@@ -151,18 +95,11 @@
                 
                 <!-- 操作按钮组 -->
                 <div class="flex flex-wrap justify-center gap-4 mt-6 mb-2">
-                    <button onclick="alignText()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
+                    <button onclick="startAlign()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
                         开始对齐
                     </button>
-                    
-                    <button onclick="triggerFileUpload()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                        导入术语
-                    </button>
-                    <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="handleJsonUpload(this)" />
                 </div>
-                <div id="termStatus" class="text-center text-xs text-base-content/50 mt-2 h-4"></div>
             </div>
         </div>
 
@@ -172,36 +109,16 @@
             <div class="bg-base-300 px-4 py-2 flex border-b border-base-content/10 rounded-t-box">
                 <!-- 左侧控制 -->
                 <div class="flex-1 flex justify-between items-center pr-4 border-r border-base-content/10">
-                    <span class="font-bold text-base-content/70">左侧校对结果</span>
-                    <div class="join">
-                        <button class="btn btn-sm btn-ghost join-item" onclick="toggleResultEdit('left', this)">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            编辑
-                        </button>
-                        <button class="btn btn-sm btn-primary join-item" onclick="saveResultContent('left')">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                            保存
-                        </button>
-                    </div>
+                    <span class="font-bold text-base-content/70">左侧文本</span>
                 </div>
                 
                 <!-- 右侧控制 -->
                 <div class="flex-1 flex justify-between items-center pl-4">
-                    <span class="font-bold text-base-content/70">右侧校对结果</span>
-                     <div class="join">
-                        <button class="btn btn-sm btn-ghost join-item" onclick="toggleResultEdit('right', this)">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            编辑
-                        </button>
-                        <button class="btn btn-sm btn-primary join-item" onclick="saveResultContent('right')">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                            保存
-                        </button>
-                        <button class="btn btn-sm btn-secondary join-item" onclick="copyRightText()" title="复制全部文本">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                            复制
-                        </button>
-                    </div>
+                    <span class="font-bold text-base-content/70">右侧文本</span>
+                    <button class="btn btn-sm btn-secondary" onclick="copyRightText()" title="复制全部文本">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                        复制
+                    </button>
                 </div>
             </div>
 
@@ -217,373 +134,161 @@
     <div class="toast toast-top toast-center z-50" id="toast-container"></div>
 
     <script>
-        // 状态标记
-        let isEditingLeft = false;
-        let isEditingRight = false;
+    
+    // 开始对齐 - 预处理输入，过滤空行
+    function startAlign() {
+        const leftText = document.getElementById('leftText');
+        const rightText = document.getElementById('rightText');
         
-        // 术语库
-        let glossary = {};
+        // 过滤掉空行和只有空格的行
+        const leftFiltered = leftText.value.split('\n').filter(p => p.trim() !== '').join('\n');
+        const rightFiltered = rightText.value.split('\n').filter(p => p.trim() !== '').join('\n');
+        
+        leftText.value = leftFiltered;
+        rightText.value = rightFiltered;
+        
+        // 调用对齐显示
+        alignText();
+    }
 
-        // 触发文件上传
-        function triggerFileUpload() {
-            document.getElementById('jsonFileInput').click();
-        }
-
-        // 处理 JSON 上传
-        function handleJsonUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const json = JSON.parse(e.target.result);
-                    if (typeof json === 'object' && json !== null) {
-                        glossary = json;
-                        showToast(`成功导入 ${Object.keys(json).length} 个术语`, 'success');
-                        document.getElementById('termStatus').textContent = `已导入 ${Object.keys(json).length} 个术语`;
-                        document.getElementById('termStatus').className = "text-center text-xs text-success mt-2 h-4";
-                        // 重新对齐以应用高亮
-                        alignText();
-                    } else {
-                        throw new Error('JSON 格式不正确');
-                    }
-                } catch (err) {
-                    showToast('无法解析 JSON 文件，请确保格式正确', 'error');
-                    document.getElementById('termStatus').textContent = "导入失败";
-                    document.getElementById('termStatus').className = "text-center text-xs text-error mt-2 h-4";
-                }
-            };
-            reader.readAsText(file);
-            // 清空 input，以便下次可以重复选择同名文件
-            input.value = '';
-        }
-
-        // 复制右侧文本
-        function copyRightText() {
-            // 确保保存最新编辑
-            saveAllEdits();
-            
-            const text = document.getElementById('rightText').value;
-            if (!text) {
-                showToast('右侧没有可复制的文本', 'warning');
-                return;
-            }
-            
-            navigator.clipboard.writeText(text).then(() => {
-                showToast('右侧文本已复制到剪贴板', 'success');
-            }).catch(err => {
-                console.error('复制失败:', err);
-                showToast('复制失败，请手动复制', 'error');
-            });
+    // 复制右侧文本
+    function copyRightText() {
+        const text = document.getElementById('rightText').value;
+        if (!text) {
+            alert('右侧没有可复制的文本');
+            return;
         }
         
-        // 显示 Toast 提示
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            let alertClass = 'alert-info';
-            if (type === 'success') alertClass = 'alert-success';
-            if (type === 'warning') alertClass = 'alert-warning';
-            if (type === 'error') alertClass = 'alert-error';
-            
-            toast.className = `alert ${alertClass} shadow-lg mb-2`;
-            toast.innerHTML = `<span>${message}</span>`;
-            
-            container.appendChild(toast);
-            
-            // 3秒后自动消失
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }
-
-        // 高亮文本
-        function highlightTerms(text, side) {
-            if (!text) return '';
-            if (Object.keys(glossary).length === 0) return escapeHtml(text);
-
-            let processedText = escapeHtml(text);
-
-            for (const [key, value] of Object.entries(glossary)) {
-                // 定义高亮样式：左侧和右侧不同
-                const cssClass = side === 'left' ? 'term-highlight-left' : 'term-highlight-right';
-
-                // 尝试匹配 Key
-                if (key) {
-                    const regexKey = new RegExp(escapeRegExp(key), 'g');
-                    processedText = processedText.replace(regexKey, `<span class="${cssClass}">${key}</span>`);
-                }
-                
-                // 尝试匹配 Value
-                if (value) {
-                    const regexValue = new RegExp(escapeRegExp(value), 'g');
-                    processedText = processedText.replace(regexValue, `<span class="${cssClass}">${value}</span>`);
-                }
-            }
-            return processedText;
-        }
-
-        // 转义 HTML 防止 XSS
-        function escapeHtml(text) {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        // 转义正则特殊字符
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
-        // 保存所有正在编辑的内容到 textarea
-        function saveAllEdits() {
-            if (isEditingLeft) {
-                 const cells = document.querySelectorAll('.left-cell');
-                 const paragraphs = [];
-                 cells.forEach(cell => paragraphs.push(cell.innerText));
-                 const text = paragraphs.join('\n\n');
-                 document.getElementById('leftText').value = text;
-            }
-            if (isEditingRight) {
-                 const cells = document.querySelectorAll('.right-cell');
-                 const paragraphs = [];
-                 cells.forEach(cell => paragraphs.push(cell.innerText));
-                 const text = paragraphs.join('\n\n');
-                 document.getElementById('rightText').value = text;
-            }
-        }
-
-        // 对齐逻辑
-        function alignText() {
-            // 如果正在编辑中，自动保存并退出编辑模式，然后重新对齐
-            if (isEditingLeft || isEditingRight) {
-                // 收集当前编辑的内容并保存
-                saveAllEdits();
-                
-                // 重置编辑状态标记
-                isEditingLeft = false;
-                isEditingRight = false;
-                
-                // 移除编辑按钮的激活状态
-                document.querySelectorAll('.join-item').forEach(b => b.classList.remove('btn-active'));
-            }
-
-            const leftRaw = document.getElementById('leftText').value;
-            const rightRaw = document.getElementById('rightText').value;
-            
-            // 分隔符逻辑
-            const separator = /\n(?:\s*\n)*/;
-            
-            const leftParagraphs = leftRaw.trim().split(separator);
-            const rightParagraphs = rightRaw.trim().split(separator);
-            
-            if (leftRaw.trim() === '') leftParagraphs.length = 0;
-            if (rightRaw.trim() === '') rightParagraphs.length = 0;
-
-            const maxLen = Math.max(leftParagraphs.length, rightParagraphs.length);
-            const resultContainer = document.getElementById('result');
-            
-            resultContainer.innerHTML = ''; 
-
-            if (maxLen === 0) {
-                resultContainer.innerHTML = '<div class="p-8 text-center text-base-content/50">没有输入内容</div>';
-                return;
-            }
-
-            // 为每个段落创建行，并在段落之间插入+按钮
-            for (let i = 0; i < maxLen; i++) {
-                // 在第一个段落之前也添加+按钮
-                if (i === 0) {
-                    createInsertButtonRow(resultContainer, i, 'before');
-                }
-                
-                // 创建内容行
-                const row = document.createElement('div');
-                row.className = 'align-row hover:bg-base-200/50 transition-colors';
-
-                // 左侧单元格
-                const leftCell = document.createElement('div');
-                leftCell.className = 'align-cell text-base-content left-cell';
-                leftCell.dataset.index = i;
-                leftCell.innerHTML = highlightTerms(leftParagraphs[i] || '', 'left');
-                
-                // 右侧单元格
-                const rightCell = document.createElement('div');
-                rightCell.className = 'align-cell text-base-content right-cell';
-                rightCell.dataset.index = i;
-                rightCell.innerHTML = highlightTerms(rightParagraphs[i] || '', 'right');
-
-                row.appendChild(leftCell);
-                row.appendChild(rightCell);
-                resultContainer.appendChild(row);
-                
-                // 在每个段落之后添加+按钮
-                createInsertButtonRow(resultContainer, i + 1, 'after');
-            }
-        }
-        
-        // 创建插入按钮行
-        function createInsertButtonRow(container, index, position) {
-            const insertRow = document.createElement('div');
-            insertRow.className = 'insert-btn';
-            
-            const leftBtn = document.createElement('div');
-            leftBtn.className = 'insert-btn-left';
-            const leftButton = document.createElement('button');
-            leftButton.textContent = '+';
-            leftButton.onclick = () => insertParagraph('left', index);
-            leftBtn.appendChild(leftButton);
-            
-            const rightBtn = document.createElement('div');
-            rightBtn.className = 'insert-btn-right';
-            const rightButton = document.createElement('button');
-            rightButton.textContent = '+';
-            rightButton.onclick = () => insertParagraph('right', index);
-            rightBtn.appendChild(rightButton);
-            
-            insertRow.appendChild(leftBtn);
-            insertRow.appendChild(rightBtn);
-            container.appendChild(insertRow);
-        }
-        
-        // 插入新段落
-        function insertParagraph(side, index) {
-            const textArea = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
-            const text = textArea.value;
-            const separator = /\n(?:\s*\n)*/;
-            const paragraphs = text.trim().split(separator);
-            
-            if (text.trim() === '') {
-                paragraphs.length = 0;
-            }
-            
-            // 在指定位置插入空段落
-            paragraphs.splice(index, 0, '');
-            textArea.value = paragraphs.join('\n\n');
-            
-            // 重新对齐
-            alignText();
-            
-            // 自动进入编辑模式
-            const editButton = side === 'left' 
-                ? document.querySelectorAll('.join-item')[0] 
-                : document.querySelectorAll('.join-item')[2];
-            
-            if (!((side === 'left' && isEditingLeft) || (side === 'right' && isEditingRight))) {
-                toggleResultEdit(side, editButton);
-            }
-            
-            // 聚焦到新插入的单元格
-            setTimeout(() => {
-                const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
-                if (cells[index]) {
-                    cells[index].focus();
-                }
-            }, 100);
-        }
-
-        // 切换编辑状态
-        function toggleResultEdit(side, btn) {
-            const isEditing = side === 'left' ? isEditingLeft : isEditingRight;
-            const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
-            
-            if (!isEditing) {
-                // 进入编辑模式
-                cells.forEach(cell => {
-                    cell.setAttribute('contenteditable', 'true');
-                    // 添加input事件监听，实现自动删除空段落
-                    cell.addEventListener('input', () => handleCellInput(cell, side));
-                    cell.addEventListener('blur', () => handleCellBlur(cell, side));
-                });
-                btn.classList.add('btn-active');
-                if (side === 'left') isEditingLeft = true;
-                else isEditingRight = true;
-            } else {
-                // 退出编辑模式
-                saveAllEdits();
-                
-                cells.forEach(cell => {
-                    cell.removeAttribute('contenteditable');
-                    cell.removeEventListener('input', handleCellInput);
-                    cell.removeEventListener('blur', handleCellBlur);
-                });
-                btn.classList.remove('btn-active');
-                
-                if (side === 'left') isEditingLeft = false;
-                else isEditingRight = false;
-
-                // 重新渲染以恢复高亮
-                alignText();
-            }
-        }
-        
-        // 处理单元格输入事件
-        function handleCellInput(cell, side) {
-            // 暂时不做处理，等待blur事件
-        }
-        
-        // 处理单元格失焦事件 - 删除空段落
-        function handleCellBlur(cell, side) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('右侧文本已复制到剪贴板');
+        }).catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制');
+        });
+    }
+    
+    // 保存单侧的编辑内容回textarea
+    function saveEdits(side) {
+        const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
+        const paragraphs = [];
+        cells.forEach(cell => {
             const text = cell.innerText.trim();
-            
-            // 如果内容为空，删除这个段落
-            if (text === '') {
-                const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
-                const paragraphs = [];
-                
-                cells.forEach(c => {
-                    const content = c.innerText.trim();
-                    if (c === cell && content === '') {
-                        // 跳过这个空单元格（删除）
-                        return;
-                    }
-                    paragraphs.push(c.innerText);
-                });
-                
-                // 更新textarea
-                const textArea = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
-                textArea.value = paragraphs.join('\n\n');
-                
-                // 重新渲染
-                alignText();
-                
-                // 重新进入编辑模式
-                const editButton = side === 'left' 
-                    ? document.querySelectorAll('.join-item')[0] 
-                    : document.querySelectorAll('.join-item')[2];
-                    
-                if (side === 'left') isEditingLeft = false;
-                else isEditingRight = false;
-                
-                toggleResultEdit(side, editButton);
-            }
+            paragraphs.push(text);
+        });
+        const textArea = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
+        // 用换行符连接，保持简单
+        textArea.value = paragraphs.join('\n');
+    }
+
+    // 对齐显示
+    function alignText() {
+        const leftRaw = document.getElementById('leftText').value;
+        const rightRaw = document.getElementById('rightText').value;
+        
+        // 用换行符分割段落（不过滤，保持所有行包括空行）
+        const leftParagraphs = leftRaw ? leftRaw.split('\n') : [];
+        const rightParagraphs = rightRaw ? rightRaw.split('\n') : [];
+        
+        const maxLen = Math.max(leftParagraphs.length, rightParagraphs.length);
+        const resultContainer = document.getElementById('result');
+        
+        resultContainer.innerHTML = ''; 
+
+        if (maxLen === 0) {
+            resultContainer.innerHTML = '<div class="p-8 text-center text-base-content/50">没有输入内容</div>';
+            return;
         }
 
-        // 手动点击保存按钮
-        function saveResultContent(side) {
-            saveAllEdits();
+        // 为每个段落创建独立的行
+        for (let i = 0; i < maxLen; i++) {
+            const row = document.createElement('div');
+            row.className = 'align-row hover:bg-base-200/50 transition-colors';
+            row.dataset.index = i;
+
+            // 左侧单元格 - 默认可编辑
+            const leftCell = document.createElement('div');
+            leftCell.className = 'align-cell text-base-content left-cell';
+            leftCell.contentEditable = 'true';
+            leftCell.dataset.index = i;
+            leftCell.textContent = leftParagraphs[i] || '';
+            leftCell.oninput = () => saveEdits('left');
             
-            // 退出编辑状态
-            const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
-            cells.forEach(cell => {
-                cell.removeAttribute('contenteditable');
-                cell.removeEventListener('input', handleCellInput);
-                cell.removeEventListener('blur', handleCellBlur);
-            });
+            // 右侧单元格 - 默认可编辑
+            const rightCell = document.createElement('div');
+            rightCell.className = 'align-cell text-base-content right-cell';
+            rightCell.contentEditable = 'true';
+            rightCell.dataset.index = i;
+            rightCell.textContent = rightParagraphs[i] || '';
+            rightCell.oninput = () => saveEdits('right');
+
+            row.appendChild(leftCell);
+            row.appendChild(rightCell);
             
-            if (side === 'left') isEditingLeft = false;
-            else isEditingRight = false;
+            // 添加插入按钮
+            const insertBtns = document.createElement('div');
+            insertBtns.className = 'insert-btns';
             
-            // 重新对齐会重置所有状态
-            alignText();
+            const leftBtnDiv = document.createElement('div');
+            const leftBtn = document.createElement('button');
+            leftBtn.className = 'btn btn-circle btn-xs btn-primary';
+            leftBtn.textContent = '+';
+            leftBtn.onclick = () => insertRowAt('left', row);
+            leftBtnDiv.appendChild(leftBtn);
             
-            showToast('已保存并刷新视图', 'success');
+            const rightBtnDiv = document.createElement('div');
+            const rightBtn = document.createElement('button');
+            rightBtn.className = 'btn btn-circle btn-xs btn-primary';
+            rightBtn.textContent = '+';
+            rightBtn.onclick = () => insertRowAt('right', row);
+            rightBtnDiv.appendChild(rightBtn);
+            
+            insertBtns.appendChild(leftBtnDiv);
+            insertBtns.appendChild(rightBtnDiv);
+            row.appendChild(insertBtns);
+            
+            resultContainer.appendChild(row);
         }
-    </script>
+    }
+    
+     // 使用DOM操作插入新行 - 只在点击的一侧插入
+     function insertRowAt(side, currentRow) {
+         // 先保存当前编辑内容
+         saveEdits('left');
+         saveEdits('right');
+         
+         // 获取当前行的索引
+         const rows = document.querySelectorAll('.align-row');
+         let rowIndex = 0;
+         for (let i = 0; i < rows.length; i++) {
+             if (rows[i] === currentRow) {
+                 rowIndex = i;
+                 break;
+             }
+         }
+         
+         // 读取对应侧的textarea并分割（不过滤空行，保持原始数据）
+         const textArea = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
+         const paragraphs = textArea.value ? textArea.value.split('\n') : [];
+         
+         // 在当前位置后插入空行（用空格作为占位符，避免被trim过滤）
+         paragraphs.splice(rowIndex + 1, 0, ' ');
+         
+         // 保存回textarea
+         textArea.value = paragraphs.join('\n');
+         
+         // 重新渲染
+         alignText();
+         
+         // 聚焦到新插入的单元格并清空占位符
+         setTimeout(() => {
+             const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
+             if (cells[rowIndex + 1]) {
+                 cells[rowIndex + 1].textContent = '';
+                 cells[rowIndex + 1].focus();
+             }
+         }, 50);
+     }
+
+</script>
 </body>
 </html>
