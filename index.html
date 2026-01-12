@@ -5,16 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>手工校译</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- DaisyUI -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
 
     <style>
+        /* 核心修改：通过增加 padding 来扩大悬停区域 */
         .align-row {
             display: flex;
             border-bottom: 1px solid oklch(var(--b3));
             position: relative;
+            /* 关键修改：增加左右 padding，让按钮区域被包含在悬停范围内 */
+            padding-left: 50px; 
+            padding-right: 50px;
         }
         
         .align-cell {
@@ -37,8 +39,8 @@
         /* 悬浮显示的插入按钮 */
         .insert-btns {
             position: absolute;
-            left: 0;
-            right: 0;
+            left: 50px; /* 调整：对齐到 align-row 的内容区域左侧边界 */
+            right: 50px; /* 调整：对齐到 align-row 的内容区域右侧边界 */
             bottom: -12px;
             height: 24px;
             display: flex;
@@ -75,12 +77,13 @@
             pointer-events: none;
         }
         
+        /* 关键修改：将定位调整到 align-row 内部 padding 的边界 */
         .delete-btn-left {
-            left: -40px;
+            left: 0; 
         }
         
         .delete-btn-right {
-            right: -40px;
+            right: 0;
         }
         
         .align-row:hover .delete-btn-left,
@@ -93,12 +96,10 @@
 <body class="min-h-screen bg-base-200 p-6">
 
     <div class="container mx-auto max-w-7xl">
-        <!-- 标题 -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-base-content">手工校译</h1>
         </div>
 
-        <!-- 输入区域 (仅用于初始输入) -->
         <div class="collapse collapse-arrow bg-base-100 shadow-xl mb-8">
             <input type="checkbox" checked /> 
             <div class="collapse-title text-xl font-medium">
@@ -106,20 +107,17 @@
             </div>
             <div class="collapse-content">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-                    <!-- 左侧输入框 -->
                     <div class="form-control">
                         <label class="label"><span class="label-text">左侧文本</span></label>
                         <textarea id="leftText" class="textarea textarea-bordered h-48 text-base leading-relaxed" placeholder="在此输入左侧文本..."></textarea>
                     </div>
 
-                    <!-- 右侧输入框 -->
                     <div class="form-control">
                         <label class="label"><span class="label-text">右侧文本</span></label>
                         <textarea id="rightText" class="textarea textarea-bordered h-48 text-base leading-relaxed" placeholder="在此输入右侧文本..."></textarea>
                     </div>
                 </div>
                 
-                <!-- 操作按钮组 -->
                 <div class="flex flex-wrap justify-center gap-4 mt-6 mb-2">
                     <button onclick="startAlign()" class="btn btn-accent shadow-lg text-lg min-w-[160px]">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -129,16 +127,12 @@
             </div>
         </div>
 
-        <!-- 结果显示区域 -->
         <div class="card bg-base-100 shadow-xl">
-             <!-- 结果区控制栏 -->
-            <div class="bg-base-300 px-4 py-2 flex border-b border-base-content/10 rounded-t-box">
-                <!-- 左侧控制 -->
+             <div class="bg-base-300 px-4 py-2 flex border-b border-base-content/10 rounded-t-box">
                 <div class="flex-1 flex justify-between items-center pr-4 border-r border-base-content/10">
                     <span class="font-bold text-base-content/70">左侧文本</span>
                 </div>
                 
-                <!-- 右侧控制 -->
                 <div class="flex-1 flex justify-between items-center pl-4">
                     <span class="font-bold text-base-content/70">右侧文本</span>
                     <button class="btn btn-sm btn-secondary" onclick="copyRightText()" title="复制全部文本">
@@ -149,14 +143,13 @@
             </div>
 
             <div class="card-body p-0">
-                <div id="result" class="flex flex-col rounded-b-box overflow-hidden min-h-[200px]">
+                <div id="result" class="flex flex-col rounded-b-box min-h-[200px]" style="overflow: visible;">
                     <div class="p-8 text-center text-base-content/50">请在上方的输入框中输入文本，然后点击"开始对齐"</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast 通知容器 -->
     <div class="toast toast-top toast-center z-50" id="toast-container"></div>
 
     <script>
@@ -179,7 +172,14 @@
 
     // 复制右侧文本
     function copyRightText() {
-        const text = document.getElementById('rightText').value;
+        // 从当前显示的右侧单元格中收集文本
+        const cells = document.querySelectorAll('.right-cell');
+        const paragraphs = [];
+        cells.forEach(cell => {
+            paragraphs.push(cell.innerText.trim());
+        });
+        const text = paragraphs.join('\n');
+        
         if (!text) {
             alert('右侧没有可复制的文本');
             return;
@@ -199,7 +199,9 @@
         const paragraphs = [];
         cells.forEach(cell => {
             const text = cell.innerText.trim();
-            paragraphs.push(text);
+            // 在保存回 textarea 时，空内容我们用单个空格占位，以保持行数对齐
+            // 否则如果单元格内容是空的，join('\n') 会导致行数减少，影响 insert/delete 的索引计算
+            paragraphs.push(text === '' ? ' ' : text); 
         });
         const textArea = side === 'left' ? document.getElementById('leftText') : document.getElementById('rightText');
         // 用换行符连接，保持简单
@@ -212,18 +214,20 @@
         const rightRaw = document.getElementById('rightText').value;
         
         // 用换行符分割段落（不过滤，保持所有行包括空行）
-        const leftParagraphs = leftRaw ? leftRaw.split('\n') : [];
-        const rightParagraphs = rightRaw ? rightRaw.split('\n') : [];
+        // 如果 textarea 是空的，split('\n') 结果是 ['']，所以需要特殊处理
+        const leftParagraphs = leftRaw.split('\n');
+        const rightParagraphs = rightRaw.split('\n');
         
         const maxLen = Math.max(leftParagraphs.length, rightParagraphs.length);
         const resultContainer = document.getElementById('result');
         
         resultContainer.innerHTML = ''; 
 
-        if (maxLen === 0) {
-            resultContainer.innerHTML = '<div class="p-8 text-center text-base-content/50">没有输入内容</div>';
-            return;
-        }
+        if (maxLen === 0 || (leftParagraphs.length === 1 && leftParagraphs[0] === '' && rightParagraphs.length === 1 && rightParagraphs[0] === '')) {
+             resultContainer.innerHTML = '<div class="p-8 text-center text-base-content/50">没有输入内容</div>';
+             return;
+         }
+
 
         // 为每个段落创建独立的行
         for (let i = 0; i < maxLen; i++) {
@@ -236,7 +240,9 @@
             leftCell.className = 'align-cell text-base-content left-cell';
             leftCell.contentEditable = 'true';
             leftCell.dataset.index = i;
-            leftCell.textContent = leftParagraphs[i] || '';
+            // 确保显示的内容是 trim 后的结果，但如果是 ' ' 占位符，显示为空
+            let leftTextContent = leftParagraphs[i] || '';
+            leftCell.textContent = leftTextContent.trim() === '' ? '' : leftTextContent;
             leftCell.oninput = () => saveEdits('left');
             
             // 右侧单元格 - 默认可编辑
@@ -244,7 +250,8 @@
             rightCell.className = 'align-cell text-base-content right-cell';
             rightCell.contentEditable = 'true';
             rightCell.dataset.index = i;
-            rightCell.textContent = rightParagraphs[i] || '';
+            let rightTextContent = rightParagraphs[i] || '';
+            rightCell.textContent = rightTextContent.trim() === '' ? '' : rightTextContent;
             rightCell.oninput = () => saveEdits('right');
 
             row.appendChild(leftCell);
@@ -354,8 +361,9 @@
          // 聚焦到新插入的单元格并清空占位符
          setTimeout(() => {
              const cells = document.querySelectorAll(side === 'left' ? '.left-cell' : '.right-cell');
+             // 注意索引是 rowIndex + 1
              if (cells[rowIndex + 1]) {
-                 cells[rowIndex + 1].textContent = '';
+                 cells[rowIndex + 1].textContent = ''; // 清空占位符
                  cells[rowIndex + 1].focus();
              }
          }, 50);
